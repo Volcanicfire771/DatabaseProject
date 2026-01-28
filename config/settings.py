@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv # to load .env file for db credentials (to run on different machines)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'tires', # Add apps here (Project can have multiple apps each have there use) 
 ]
 
 MIDDLEWARE = [
@@ -72,13 +75,19 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# Load the .env file
+load_dotenv()
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -97,6 +106,26 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False, # do not disable built in logging built into django
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler', # to send logs to terminal
+        },
+        'file': { # to write logs into a file 
+            'level': 'DEBUG', #low&high prio
+            'class': 'logging.FileHandler', # Write into a physical file
+            'filename': 'debug.log',
+        },
+    },
+    'root': { # decides which handlers to use
+        'handlers': ['console', 'file'], 
+        'level': 'INFO', # Only record "INFO" level or higher (hierarchy: DEBUG < INFO < WARNING < ERROR < CRITICAL)
+    },
+}
 
 
 # Internationalization
