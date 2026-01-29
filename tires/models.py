@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 
 class Employee(models.Model): # models.Model is a base class provided by Django (Inheritance)
     first_name = models.CharField(max_length=50)
+    middle_name = models.CharField(max_length=50, null=True, blank=True)
     last_name = models.CharField(max_length=50)
     position = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
@@ -20,9 +21,10 @@ class Employee(models.Model): # models.Model is a base class provided by Django 
 class Supplier(models.Model):
     name = models.CharField(max_length=100)
     contact_person = models.CharField(max_length=100)
-    phone = models.CharField(max_length=20, blank=True)
-    email = models.EmailField()
-    address = models.TextField(blank=True)
+    phone = models.CharField(max_length=15)
+    email = models.EmailField(blank=True, null=True)
+    position = models.TextField()
+    address = models.TextField(blank=True, null=True)
     # Business Logic: Use a choice field for evaluation
     EVALUATION_CHOICES = [
         (1, 'Poor'), (2, 'Fair'), (3, 'Good'), (4, 'Excellent'), (5, 'Top Tier') # Better than textfield because 1. Consistency of data. 2. stores the choices as 1,2 or 3 which is cheaper
@@ -90,7 +92,7 @@ class TirePattern(models.Model):
     def __str__(self):
         return f"{self.brand_name} {self.pattern_code}"
 
-# Validations: 1) Unique Licence plate. 2)
+# Validations: 1) Unique Licence plate.
 class Vehicle(models.Model):
     license_plate = models.CharField(max_length=20, unique=True)
     make = models.CharField(max_length=50)
@@ -98,6 +100,7 @@ class Vehicle(models.Model):
     vehicle_type = models.CharField(max_length=50) 
     odometer = models.PositiveIntegerField()
     status = models.TextField()
+    tire_configuration = models.TextField()
 
     # Logic: How many tires should this vehicle have?
     num_op_tires = models.PositiveIntegerField(default=10, verbose_name="Operational Tires")
@@ -111,17 +114,29 @@ class Vehicle(models.Model):
         return f"{self.license_plate} ({self.make})"
 
 class Tire(models.Model):
-    serial_number = models.CharField(max_length=100, unique=True)
+    serial_number = models.CharField(max_length=100)
     
     # FOREIGN KEYS: This links Batch 2 to Batch 1
-    pattern = models.ForeignKey(TirePattern, on_delete=models.CASCADE) # CASCADE: If we delete TirePattern all tires associated with the deleted pattern will get deleted.
-    status = models.ForeignKey('TireStatus', on_delete=models.SET_NULL, null=True) # SET_NULL: if we delete the status all tires associated with the deleted status will have a null status.
-    supplier = models.ForeignKey('Supplier', on_delete=models.PROTECT) # PROTECT: Cannot delete a supplier without deleting all tires associated with that supplier.
+    # CASCADE: If we delete TirePattern all tires associated with the deleted pattern will get deleted.
+    # SET_NULL: if we delete the status all tires associated with the deleted status will have a null status.
+    # PROTECT: Cannot delete a supplier without deleting all tires associated with that supplier.
+
+    pattern = models.ForeignKey(TirePattern, on_delete=models.SET_NULL) 
+    status = models.ForeignKey('TireStatus', on_delete=models.SET_NULL, null=True) 
+    supplier = models.ForeignKey('Supplier', on_delete=models.SET_NULL) 
     
     purchase_date = models.DateField()
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2)
     current_tread_depth = models.DecimalField(max_digits=5, decimal_places=2)
 
+    size = models.TextField()
+    retread_count = models.PositiveIntegerField() 
+    max_retreads = models.PositiveIntegerField()
+    tire_mileage = models.IntegerField()
+    current_position = models.ForeignKey('TirePosition', on_delete=models.PROTECT, null=True) # if null it means that it is in the warehouse or not attached to any vehicles
+
+
+    # cannot retread_count > max_retreads
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
@@ -142,6 +157,7 @@ class TirePosition(models.Model):
 
     tire_order = models.IntegerField(unique=True)
     is_spare = models.BooleanField(default=False)
+
     def __str__(self):
         return f"{self.vehicle.license_plate} - {self.position_name}"
 
@@ -154,13 +170,13 @@ class TireAssignment(models.Model):
     removal_date = models.DateTimeField(null=True, blank=True)
     
     # Capturing mileage at the moment of change
-    start_odometer = models.PositiveIntegerField()
-    end_odometer = models.PositiveIntegerField(null=True, blank=True)
+    start_odometer = models.ForeignKey('WorkOrder', on_delete=models.SET_NULL, related_name='previous_wo', null=True) # the previous work order. can be null incase that this is the first assignment
+    end_odometer = models.ForeignKey('WorkOrder', on_delete=models.SET_NULL, related_name='current_wo') # the current work_order
     
-    removal_mileage = models.PositiveIntegerField()
+    removal_mileage = models.PositiveIntegerField(null=True, blank=True)
     reason_for_removal = models.TextField(blank=True)
 
-    #Missing work order & Inspection
+    work_order = models.ForeignKey('WorkOrder', on_delete=models.SET_NULL)
 
     def __str__(self):
         return f"{self.tire.serial_number} moved on {self.assignment_date.date()}"
@@ -168,8 +184,8 @@ class TireAssignment(models.Model):
 class TireInspection(models.Model):
     tire = models.ForeignKey('Tire', on_delete=models.CASCADE)
     position = models.ForeignKey('TirePosition', on_delete=models.SET_NULL, null=True, blank=True) # blank=true:for django. null=true: for PostgreSQL
-    inspection_odometer = models.PositiveIntegerField()
-    inspector = models.ForeignKey('Employee', on_delete=models.PROTECT)
+    inspection_odometer = models.ForeignKey('WorkOrder', on_delete=models.CASCADE)
+    inspector = models.ForeignKey('Employee', on_delete=models.SET_NULL)
     inspection_date = models.DateField()
     
     # Current stats found during inspection
@@ -178,7 +194,8 @@ class TireInspection(models.Model):
     
     wear_type = models.ForeignKey('WearType', on_delete=models.SET_NULL, null=True, blank=True)
     
-    
+    # add calculations on the spot
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
@@ -187,23 +204,19 @@ class TireInspection(models.Model):
         return f"Inspection: {self.tire.serial_number} - {self.inspection_date}"
     
 class WorkOrder(models.Model):
-    
-    wo_id = models.CharField(max_length=50, unique=True, verbose_name="Work Order ID")
-    
-    driver = models.ForeignKey('Employee', on_delete=models.PROTECT, related_name="driver")
-    assigned_to = models.ForeignKey('Employee', on_delete=models.PROTECT, related_name="assigned_employee")
+        
+    driver = models.ForeignKey('Employee', on_delete=models.SET_NULL, related_name="driver")
+    assigned_to = models.ForeignKey('Employee', on_delete=models.SET_NULL, related_name="assigned_employee")
 
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
     
     date_created = models.DateTimeField(auto_now_add=True)
-    date_closed = models.DateTimeField(null=True, blank=True)
     
     current_odometer = models.PositiveIntegerField()
     
     
     
-    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    shift_type = models.CharField(max_length=50)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, null=True, blank=True) # blank until work order is closed
 
     STATUSES = [
         ('O', 'OPENED'),
@@ -215,11 +228,11 @@ class WorkOrder(models.Model):
 
     notes = models.TextField()
 
-    # 1. THE RULES
-    def clean(self):
-        super().clean() # Always call this first!
-        if self.date_closed and self.date_closed < self.date_created:
-            raise ValidationError("A Work Order cannot end before it starts!")
+    # # 1. THE RULES
+    # def clean(self):
+    #     super().clean() # Always call this first!
+    #     if self.date_closed and self.date_closed < self.date_created:
+    #         raise ValidationError("A Work Order cannot end before it starts!")
 
     # 2. THE ENFORCER
     def save(self, *args, **kwargs):
@@ -231,10 +244,10 @@ class WorkOrder(models.Model):
 
 
 class Maintainance_Record(models.Model):
-    tire = models.ForeignKey(Tire,on_delete=models.SET_NULL, null=True, blank=True)
+    tire = models.ForeignKey(Tire,on_delete=models.CASCADE, null=True, blank=True)
     service_type = models.ForeignKey('Service_Type', on_delete=models.SET_NULL, null=True, blank=True)
     service_date = models.DateField()
-    service_mileage = models.PositiveIntegerField()
+    service_mileage = models.ForeignKey(Tire, on_delete=models.CASCADE)
     cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     service_provider = models.ForeignKey(Employee, on_delete=models.CASCADE)
     notes = models.TextField()

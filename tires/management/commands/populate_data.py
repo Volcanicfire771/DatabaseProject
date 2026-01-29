@@ -72,4 +72,4 @@ class Command(BaseCommand):
                 tire_order=i
             )
 
-        self.stdout.write(self.style.SUCCESS('Successfully populated Level 1 & 2 fleet data!'))
+        self.stdout.write(self.style.SUCCESS('Successfully populated Level 1 & 2 data!'))
