@@ -22,9 +22,9 @@ admin.site.register(TirePosition)
 
 # --- Advanced Registrations ---
 
-@admin.register(Tire)
+# @admin.register(Tire,TireAdmin)
 class TireAdmin(admin.ModelAdmin):
-    list_display = ('serial_number', 'pattern', 'status', 'current_tread_depth')
+    list_display = ('serial_number', 'current_tread_depth', 'current_pressure', 'current_position')
     list_filter = ('status', 'pattern')
     search_fields = ('serial_number',)
 
@@ -36,3 +36,34 @@ class TirePositionInline(admin.TabularInline):
 class VehicleAdmin(admin.ModelAdmin):
     list_display = ('license_plate', 'make', 'odometer')
     inlines = [TirePositionInline]
+
+
+
+@admin.action(description="Move selected tires to Garage (Warehouse)")
+def move_to_garage(modeladmin, request, queryset):
+    # We need a Work Order to 'anchor' the move. 
+    # For now, we'll grab the latest open one, or you can create a 'System' WO.
+    last_wo = WorkOrder.objects.last() 
+    
+    for tire in queryset:
+        TireAssignment.move_tire(
+            tire=tire, 
+            to_position=None, 
+            work_order=last_wo, 
+            reason="Moved to Garage via Admin Action"
+        )
+
+class TireAdmin(admin.ModelAdmin):
+    list_display = ('serial_number', 'current_position', 'status')
+    actions = [move_to_garage] # Register the action here
+
+admin.site.register(Tire, TireAdmin)
+
+class TireInspectionAdmin(admin.ModelAdmin):
+    list_display = (
+        'tire', 
+        'tread_depth', 
+        'consumption_rate', # Shows the wear rate
+        'remaining_distance', # Shows predicted life
+        'current_value' # Shows the money left on the wheel
+    )
