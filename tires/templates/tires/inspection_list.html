@@ -1,0 +1,172 @@
+{% extends 'tires/base.html' %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Tire Inspection Logs</h2>
+            <p class="text-muted">Predictive wear analytics and frozen performance snapshots</p>
+        </div>
+        <button class="btn btn-danger shadow-sm" data-bs-toggle="modal" data-bs-target="#createInspectionModal">
+            <i class="bi bi-clipboard-check"></i> New Inspection
+        </button>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Date & Tire</th>
+                        <th>Odometer</th>
+                        <th>Tread / Pressure</th>
+                        <th>Condition</th>
+                        <th>Wear Rate</th>
+                        <th>Est. Remaining</th>
+                        <th>Asset Value</th>
+                        <th class="text-end px-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for insp in inspections %}
+                    <tr>
+                        <td>
+                            <strong>{{ insp.inspection_date|date:"M d, Y" }}</strong><br>
+                            <small class="badge bg-light text-primary border">{{ insp.tire.serial_number }}</small>
+                        </td>
+                        <td>{{ insp.inspection_odometer.current_odometer|default:"---" }} km</td>
+                        <td>
+                            <span class="badge bg-info text-dark">{{ insp.tread_depth }} mm</span>
+                            <span class="badge bg-secondary">{{ insp.pressure }} PSI</span>
+                        </td>
+                        <td>
+                            {% if insp.wear_type %}
+                                <span class="text-danger fw-bold"><i class="bi bi-exclamation-triangle"></i> {{ insp.wear_type.wear_type }}</span>
+                            {% else %}
+                                <span class="text-success"><i class="bi bi-check-circle"></i> Normal</span>
+                            {% endif %}
+                        </td>
+                        <td class="fw-bold text-primary">{{ insp.recorded_consumption_rate|default:"0.00"|stringformat:".2f" }} <small class="text-muted">mm/10k</small></td>
+                        <td>{{ insp.recorded_remaining_distance|default:"0"|floatformat:0 }} <small class="text-muted">km</small></td>
+                        <td class="text-success fw-bold">${{ insp.recorded_current_value|default:"0.00"|stringformat:".2f" }}</td>
+                        
+                        <td class="text-end px-4">
+                            <div class="btn-group shadow-sm">
+                                <button class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#reportModal{{ insp.id }}">
+                                    <i class="bi bi-graph-up"></i> Analysis
+                                </button>
+                                <a href="{% url 'inspection_delete' insp.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete historical record?')">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <div class="modal fade" id="reportModal{{ insp.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content border-0 shadow-lg">
+                                <div class="modal-header bg-dark text-white">
+                                    <h5 class="modal-title"><i class="bi bi-shield-check me-2"></i>Snapshot Report: {{ insp.tire.serial_number }}</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body bg-light">
+                                    <div class="row g-4">
+                                        <div class="col-md-6">
+                                            <div class="card h-100 border-0 shadow-sm">
+                                                <div class="card-body">
+                                                    <h6 class="text-muted text-uppercase small fw-bold">Wear Dynamics</h6>
+                                                    <div class="d-flex justify-content-between align-items-end mb-3">
+                                                        <div>
+                                                            <span class="display-6 fw-bold text-primary">{{ insp.recorded_consumption_rate|stringformat:".2f" }}</span>
+                                                            <small class="text-muted">mm/10k</small>
+                                                        </div>
+                                                        <div class="text-end">
+                                                            <label class="small d-block text-muted">Est. Remaining</label>
+                                                            <span class="h5 text-dark mb-0">{{ insp.recorded_remaining_distance|floatformat:0 }} km</span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <label class="small fw-bold">Tread Life Status</label>
+                                                    <div class="progress mb-2" style="height: 12px;">
+                                                        {% widthratio insp.tread_depth insp.tire.pattern.initial_tread_depth 100 as wear_percent %}
+                                                        <div class="progress-bar bg-info" role="progressbar" style="width: {{ wear_percent }}%"></div>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between small text-muted">
+                                                        <span>Current: {{ insp.tread_depth }}mm</span>
+                                                        <span>New: {{ insp.tire.pattern.initial_tread_depth }}mm</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <div class="card h-100 border-0 shadow-sm">
+                                                <div class="card-body">
+                                                    <h6 class="text-muted text-uppercase small fw-bold">Asset Value</h6>
+                                                    <div class="mb-3">
+                                                        <span class="display-6 fw-bold text-success">${{ insp.recorded_current_value|stringformat:".2f" }}</span>
+                                                        <p class="text-muted small mb-0">Value at time of inspection.</p>
+                                                    </div>
+                                                    <div class="p-2 bg-light rounded border-start border-4 border-success">
+                                                        <div class="d-flex justify-content-between small mb-1">
+                                                            <span>Cost per KM:</span>
+                                                            <span class="fw-bold text-dark">${{ insp.recorded_cost_per_km|stringformat:".4f" }}</span>
+                                                        </div>
+                                                        <div class="d-flex justify-content-between small">
+                                                            <span>Fuel Impact:</span>
+                                                            <span class="fw-bold {% if insp.recorded_fuel_impact > 0 %}text-danger{% else %}text-success{% endif %}">
+                                                                {{ insp.recorded_fuel_impact|stringformat:".2f" }}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <div class="p-3 rounded border {% if insp.pressure < insp.tire.pattern.ideal_pressure %}bg-warning-subtle border-warning{% else %}bg-success-subtle border-success{% endif %}">
+                                                <div class="row align-items-center">
+                                                    <div class="col-md-8">
+                                                        <h6 class="mb-1 fw-bold">Pressure Analysis</h6>
+                                                        <p class="mb-0 small">
+                                                            Recorded at <strong>{{ insp.pressure }} PSI</strong>. 
+                                                            Target pressure: <strong>{{ insp.tire.pattern.ideal_pressure }} PSI</strong>.
+                                                            {% if insp.pressure < insp.tire.pattern.ideal_pressure %}
+                                                            <br><span class="text-danger fw-bold">Under-inflation detected at log time.</span>
+                                                            {% endif %}
+                                                        </p>
+                                                    </div>
+                                                    <div class="col-md-4 text-md-end">
+                                                        <span class="h4 mb-0">{{ insp.pressure }} <small class="text-muted fs-6">/ {{ insp.tire.pattern.ideal_pressure }}</small></span>
+                                                        <small class="d-block text-muted text-uppercase">PSI Target</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer bg-white">
+                                    <div class="me-auto">
+                                        <small class="text-muted italic">Log recorded by: {{ insp.inspector|default:"System" }}</small>
+                                    </div>
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-search fs-2 d-block mb-2"></i>
+                            No historical inspection records found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% include 'tires/modals/inspection/create.html' %}
+{% endblock %}

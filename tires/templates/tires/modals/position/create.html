@@ -1,0 +1,45 @@
+<div class="modal fade" id="createPositionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'position_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">New Tire Position</h5>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Vehicle</label>
+                            <select name="vehicle" class="form-select" required>
+                                {% for v in form.fields.vehicle.queryset %}
+                                <option value="{{ v.id }}">{{ v }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Position Name</label>
+                            <input type="text" name="position_name" class="form-control" placeholder="e.g. Front Left" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Axle Type</label>
+                            <input type="text" name="axle_type" class="form-control" placeholder="Steer/Drive" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Tire Order</label>
+                            <input type="number" name="tire_order" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input type="checkbox" name="is_spare" class="form-check-input" id="create_is_spare">
+                                <label class="form-check-label" for="create_is_spare">Is Spare?</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100">Create Position</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

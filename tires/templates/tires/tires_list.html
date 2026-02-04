@@ -1,0 +1,77 @@
+{% extends 'tires/base.html' %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-dark">Tire Inventory Hub</h2>
+        <button class="btn btn-primary btn-lg shadow-sm" data-bs-toggle="modal" data-bs-target="#createModal">
+            <i class="bi bi-plus-lg"></i> Add New Tire
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" id="tireSearch" class="form-control border-start-0" placeholder="Search by serial number, vehicle, or status..." onkeyup="filterTires()">
+            </div>
+        </div>
+    </div>
+
+    <div class="row" id="tireGrid">
+        {% for tire in tires %}
+        <div class="col-md-6 col-lg-4 mb-4 tire-card">
+            <div class="card h-100 border-0 shadow-sm hover-shadow transition">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <span class="fw-bold text-primary"># {{ tire.serial_number }}</span>
+                    <span class="badge {% if tire.status.name == 2 %}bg-success{% else %}bg-secondary{% endif %}">
+                        {{ tire.status }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Pattern</small>
+                            <span class="fw-semibold">{{ tire.pattern.pattern_code }}</span>
+                        </div>
+                        <div class="col-6 text-end">
+                            <small class="text-muted d-block">Tread Depth</small>
+                            <span class="fw-semibold">{{ tire.last_tread_depth }}mm</span>
+                        </div>
+                        <div class="col-12 mt-2">
+                            <small class="text-muted d-block">Current Location</small>
+                            <span class="text-dark">
+                                {% if tire.current_position %}
+                                    <i class="bi bi-truck"></i> {{ tire.current_position.vehicle.license_plate }} - {{ tire.current_position.position_name }}
+                                {% else %}
+                                    <span class="text-warning">In Warehouse</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-light border-0 d-flex gap-2">
+                    <button class="btn btn-outline-warning btn-sm flex-fill" data-bs-toggle="modal" data-bs-target="#editModal-{{ tire.id }}">
+                        <i class="bi bi-pencil"></i> Edit
+                    </button>
+                    <a href="{% url 'tire_history' tire.id %}" class="btn btn-outline-primary btn-sm flex-fill">
+                        <i class="bi bi-clock-history"></i> History
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {% include 'tires/modals/tire/edit.html' %}
+        
+        {% empty %}
+        <div class="text-center py-5">
+            <i class="bi bi-info-circle display-1 text-muted"></i>
+            <p class="mt-3">No tires found in the system.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% include 'tires/modals/tire/create.html' %}
+
+{% endblock %}

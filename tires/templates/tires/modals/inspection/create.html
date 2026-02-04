@@ -1,0 +1,49 @@
+<div class="modal fade" id="createInspectionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'inspection_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Record New Tire Inspection</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Select Tire</label>
+                            {{ form.tire }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Active Work Order (Odometer)</label>
+                            {{ form.inspection_odometer }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Inspector</label>
+                            {{ form.inspector }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Inspection Date</label>
+                            {{ form.inspection_date }}
+                        </div>
+                        <hr>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-primary">Tread Depth (mm)</label>
+                            {{ form.tread_depth }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-primary">Pressure (PSI)</label>
+                            {{ form.pressure }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Wear Type (If any)</label>
+                            {{ form.wear_type }}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-danger px-5">Save Inspection & Run Analytics</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

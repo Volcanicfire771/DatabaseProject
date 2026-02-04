@@ -1,0 +1,6 @@
+<option value="">-- Select Position --</option>
+{% for pos in positions %}
+    <option value="{{ pos.id }}">{{ pos.position_name }}</option>
+{% empty %}
+    <option value="">No empty positions with open Work Orders</option>
+{% endfor %}

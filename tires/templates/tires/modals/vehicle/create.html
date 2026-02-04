@@ -1,0 +1,61 @@
+<div class="modal fade" id="createVehicleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'vehicle_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">New Vehicle Entry</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">License Plate</label>
+                            <input type="text" name="license_plate" class="form-control" placeholder="ABC-1234" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Make</label>
+                            <input type="text" name="make" class="form-control" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">Year</label>
+                            <input type="number" name="year" class="form-control" value="2024" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Vehicle Type</label>
+                            <select name="vehicle_type" class="form-select">
+                                <option value="Truck">Truck</option>
+                                <option value="Trailer">Trailer</option>
+                                <option value="Bus">Bus</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Current Odometer (km)</label>
+                            <input type="number" name="odometer" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Operational Tires</label>
+                            <input type="number" name="num_op_tires" class="form-control" value="10">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Spare Tires</label>
+                            <input type="number" name="num_sp_tires" class="form-control" value="1">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Current Status</label>
+                            <textarea name="status" class="form-control" rows="2" required></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Tire Configuration</label>
+                            <textarea name="tire_configuration" class="form-control" rows="2" required></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100">Save Vehicle</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

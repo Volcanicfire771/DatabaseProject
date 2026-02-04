@@ -1,0 +1,98 @@
+{% extends 'tires/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Suppliers & Vendors</h2>
+        <button class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#createSupplierModal">
+            <i class="bi bi-plus"></i> Register Supplier
+        </button>
+    </div>
+
+    <div class="row">
+        {% for s in suppliers %}
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h5 class="card-title">{{ s.name }}</h5>
+                        <span class="badge {% if s.evaluation >= 4 %}bg-success{% elif s.evaluation == 3 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                            {{ s.get_evaluation_display }}
+                        </span>
+                    </div>
+                    <p class="card-text text-muted mb-1"><small>{{ s.contact_person }} ({{ s.position }})</small></p>
+                    <p class="card-text mb-0"><strong>Phone:</strong> {{ s.phone }}</p>
+                    <p class="card-text"><strong>Email:</strong> {{ s.email|default:"N/A" }}</p>
+                </div>
+                <div class="card-footer bg-white border-top-0 d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#editModal{{ s.id }}">Edit</button>
+                    <a href="{% url 'supplier_delete' s.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this supplier?')">Delete</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="editModal{{ s.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'supplier_update' s.id %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">Edit Supplier: {{ s.name }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Company Name</label>
+                            <input type="text" name="name" class="form-control" value="{{ s.name }}" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Contact Person</label>
+                            <input type="text" name="contact_person" class="form-control" value="{{ s.contact_person }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Position</label>
+                            <input type="text" name="position" class="form-control" value="{{ s.position }}" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Phone Number</label>
+                            <input type="text" name="phone" class="form-control" value="{{ s.phone }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Email</label>
+                            <input type="email" name="email" class="form-control" value="{{ s.email|default:'' }}">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Evaluation Tier</label>
+                            <select name="evaluation" class="form-select">
+                                {% for val, label in s.EVALUATION_CHOICES %}
+                                <option value="{{ val }}" {% if s.evaluation == val %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Physical Address</label>
+                            <textarea name="address" class="form-control" rows="2">{{ s.address|default:'' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success px-4">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+        {% endfor %}
+    </div>
+</div>
+
+{% include 'tires/modals/supplier/create.html' %}
+{% endblock %}

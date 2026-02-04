@@ -1,0 +1,160 @@
+{% extends 'tires/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Tire Mounting Positions</h2>
+            <p class="text-muted">Manage where tires are located on each vehicle</p>
+        </div>
+        <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#createPositionModal">
+            <i class="bi bi-plus-lg"></i> Add Position
+        </button>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 bg-light shadow-sm text-center p-3">
+                <h6 class="text-muted">Total Positions</h6>
+                <h3 class="mb-0">{{ positions.count }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Vehicle</th>
+                        <th>Position Name</th>
+                        <th>Axle Type</th>
+                        <th>Mounted Tire</th>
+                        <th>Order</th>
+                        <th class="text-center">Type</th>
+                        <th class="text-end px-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pos in positions %}
+                    <tr>
+                        <td>
+                            <span class="fw-bold text-primary">{{ pos.vehicle.license_plate }}</span>
+                            <br><small class="text-muted">{{ pos.vehicle.make }}</small>
+                        </td>
+                        <td>{{ pos.position_name }}</td>
+                        <td><span class="badge bg-secondary">{{ pos.axle_type }}</span></td>
+                        <td>
+                            {% if pos.mounted_tire %}
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-success me-2">{{ pos.mounted_tire.serial_number }}</span>
+                                    <small class="text-muted">{{ pos.mounted_tire.brand_name }}</small>
+                                </div>
+                            {% else %}
+                                <span class="badge bg-light text-muted border">Empty Slot</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ pos.tire_order }}</td>
+                        <td class="text-center">
+                            {% if pos.is_spare %}
+                                <span class="badge rounded-pill bg-warning text-dark">Spare</span>
+                            {% else %}
+                                <span class="badge rounded-pill bg-info text-dark">Active</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end px-4">
+                            <button class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="modal" data-bs-target="#editModal{{ pos.id }}">
+                                <i class="bi bi-pencil-square"></i> Edit
+                            </button>
+                            <a href="{% url 'position_delete' pos.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this position?')">
+                                <i class="bi bi-trash"></i>
+                                Delete
+                            </a>
+                        </td>
+                    </tr>
+
+                    <div class="modal fade" id="editModal{{ pos.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <form method="post" action="{% url 'position_update' pos.id %}">
+                                {% csrf_token %}
+                                <div class="modal-content">
+                                    <div class="modal-header bg-dark text-white">
+                                        <h5 class="modal-title">Edit {{ pos.position_name }}</h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label class="form-label fw-bold">Vehicle</label>
+                                                <select name="vehicle" class="form-select" required>
+                                                    {% for v in form.fields.vehicle.queryset %}
+                                                    <option value="{{ v.id }}" {% if pos.vehicle.id == v.id %}selected{% endif %}>{{ v.license_plate }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-bold">Position Name</label>
+                                                <input type="text" name="position_name" class="form-control" value="{{ pos.position_name }}" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-bold">Axle Type</label>
+                                                <input type="text" name="axle_type" class="form-control" value="{{ pos.axle_type }}" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-bold">Tire Order</label>
+                                                <input type="number" name="tire_order" class="form-control" value="{{ pos.tire_order }}" required>
+                                            </div>
+                                            <div class="col-md-6 d-flex align-items-end">
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" name="is_spare" class="form-check-input" id="edit_spare_{{ pos.id }}" {% if pos.is_spare %}checked{% endif %}>
+                                                    <label class="form-check-label" for="edit_spare_{{ pos.id }}">Is Spare?</label>
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12">
+                                                <hr>
+                                                {% if pos.mounted_tire %}
+                                                    <label class="form-label fw-bold text-success">Mounted Tire</label>
+                                                    <select name="mounted_tire" class="form-select border-success">
+                                                        <option value="">-- Remove/Unmount Tire --</option>
+                                                        {% for t in form.fields.mounted_tire.queryset %}
+                                                        <option value="{{ t.id }}" {% if pos.mounted_tire.id == t.id %}selected{% endif %}>
+                                                            {{ t.serial_number }} ({{ t.brand_name }})
+                                                        </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <small class="text-muted">Selecting the empty option will mark this position as empty.</small>
+                                                {% else %}
+                                                    <div class="alert alert-light border text-center py-3 mb-0">
+                                                        <p class="mb-0 text-muted"><i class="bi bi-info-circle me-1"></i> This position is currently empty.</p>
+                                                        <small>Use the Tire Inventory to mount a tire here.</small>
+                                                    </div>
+                                                    <input type="hidden" name="mounted_tire" value="">
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer bg-light">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-primary px-4">Save Changes</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-truck-flatbed fs-2 d-block mb-2"></i>
+                            No mounting positions defined yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% include 'tires/modals/position/create.html' %}
+{% endblock %}
