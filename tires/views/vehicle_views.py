@@ -2,12 +2,18 @@ from django.shortcuts import render, get_object_or_404, redirect
 from ..models import WorkOrder, Vehicle, Employee
 from django.contrib import messages
 from ..forms.vehicle_forms import VehicleForm 
+from ..filters import VehicleFilter
+
 
 def vehicle_list(request):
     vehicles = Vehicle.objects.all()
+    vehicle_filter = VehicleFilter(request.GET, queryset=vehicles)
+
     context = {
-        'vehicles': vehicles,
+        'vehicles': vehicle_filter.qs,
         'create_form': VehicleForm(),
+        # Filter
+        'filter': vehicle_filter,
     }
     return render(request, 'tires/vehicle_list.html', context)
 

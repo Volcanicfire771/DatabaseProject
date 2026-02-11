@@ -9,6 +9,25 @@
         </button>
     </div>
 
+
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                {% for field in filter.form %}
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">{{ field.label }}</label>
+                        {{ field }}
+                    </div>
+                {% endfor %}
+                
+                <div class="col-md-auto">
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                    <a href="{% url 'vehicle_list' %}" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="card shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">

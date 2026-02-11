@@ -1,20 +1,32 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from ..models import Tire, TirePattern, TireStatus, Supplier, TirePosition
 from ..forms import TireForm
+from ..filters import TireFilter
 
 def tires_list(request):
+    # Keep your optimized queryset
     tires = Tire.objects.all().select_related('status', 'pattern', 'supplier', 'current_position')
     
+    # IMPORTANT: Link the filter to your 'tires' variable so it actually filters!
+    tire_filter = TireFilter(request.GET, queryset=tires)
+    
     context = {
-        'tires': tires,
+        
+        'tires': tire_filter.qs, 
+        
         'create_form': TireForm(),
         'tire_patterns': TirePattern.objects.all(),
         'tire_statuses': TireStatus.objects.all(),
         'suppliers': Supplier.objects.all(),
         'tire_positions': TirePosition.objects.all(),
+        
         # Quick Stats
         'total_count': tires.count(),
-        'active_count': tires.filter(status__name=2).count(),
+        
+        'active_count': tires.filter(status_id=2).count(), 
+        
+        # Filter
+        'filter': tire_filter,
     }
     return render(request, 'tires/tires_list.html', context)
 
