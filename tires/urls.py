@@ -77,7 +77,7 @@ urlpatterns = [
     path('ajax/load-to-positions/', views.load_to_positions, name='ajax_load_to_positions'),
 
     # --- Placeholder URLs (Redirect to tires for now) ---
-    path('employees/', views.tires_list, name='employee_list'),
-    path('suppliers/', views.tires_list, name='supplier_list'),
-    path('tire-inspections/', views.tires_list, name='tire_inspections_list'),
+    # path('employees/', views.tires_list, name='employee_list'),
+    # path('suppliers/', views.tires_list, name='supplier_list'),
+    # path('tire-inspections/', views.tires_list, name='tire_inspections_list'),
 ]

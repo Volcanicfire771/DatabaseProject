@@ -134,6 +134,16 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="{% url 'tire_status_list' %}" class="nav-link {% if 'tire_status' in request.path %}active{% endif %}">
+                        <i class="bi bi-info-circle-fill"></i> Tire Statuses
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'wear_list' %}" class="nav-link {% if 'wear' in request.path %}active{% endif %}">
+                        <i class="bi bi-exclamation-triangle"></i> Wear Types
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{% url 'position_list' %}" class="nav-link {% if 'position' in request.path %}active{% endif %}">
                         <i class="bi bi-pin-map"></i> Layout Positions
                     </a>
