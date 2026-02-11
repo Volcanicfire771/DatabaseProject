@@ -1,5 +1,5 @@
 from django import forms
-from ..models import TireInspection
+from ..models import TireInspection, WorkOrder
 
 class TireInspectionForm(forms.ModelForm):
     class Meta:
@@ -16,6 +16,14 @@ class TireInspectionForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self.fields['inspection_odometer'].queryset = WorkOrder.objects.filter(
+            status='O'
+        ).select_related('vehicle')
+        
+        # Optional: Customize how the label looks in the dropdown
+        self.fields['inspection_odometer'].empty_label = "--- Select an Open Work Order ---"
+
         for field in self.fields.values():
             field.widget.attrs.update({'class': 'form-control'})
         # Use select-specific styling for foreign keys
