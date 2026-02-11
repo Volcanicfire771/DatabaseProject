@@ -11,6 +11,8 @@ def work_order_list(request):
         'create_form': WorkOrderForm(),
         'vehicles': Vehicle.objects.all(),
         'employees': Employee.objects.all(),
+        'orders_opened_count': WorkOrder.objects.filter(status='O').count,
+        'orders_closed_count': WorkOrder.objects.filter(status='C').count,
     }
     return render(request, 'tires/work_order_list.html', context)
 
