@@ -27,14 +27,14 @@
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-4">
+    <!-- <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <div class="input-group">
                 <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
                 <input type="text" id="tireSearch" class="form-control border-start-0" placeholder="Search by serial number, vehicle, or status..." onkeyup="filterTires()">
             </div>
         </div>
-    </div>
+    </div> -->
 
     <div class="row" id="tireGrid">
         {% for tire in tires %}
@@ -54,7 +54,7 @@
                         </div>
                         <div class="col-6 text-end">
                             <small class="text-muted d-block">Tread Depth</small>
-                            <span class="fw-semibold">{{ tire.last_tread_depth }}mm</span>
+                            <span class="fw-semibold">{{ tire.current_tread_depth }}mm</span>
                         </div>
                         <div class="col-12 mt-2">
                             <small class="text-muted d-block">Current Location</small>
