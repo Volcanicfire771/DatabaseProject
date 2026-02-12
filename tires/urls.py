@@ -75,6 +75,7 @@ urlpatterns = [
     # --- AJAX ---
     # path('ajax/load-positions/', views.load_positions, name='ajax_load_positions'),
     path('ajax/load-to-positions/', views.load_to_positions, name='ajax_load_to_positions'),
+    path('ajax/load-tires/', views.ajax_load_tires, name='ajax_load_tires'),
 
     # --- Placeholder URLs (Redirect to tires for now) ---
     # path('employees/', views.tires_list, name='employee_list'),

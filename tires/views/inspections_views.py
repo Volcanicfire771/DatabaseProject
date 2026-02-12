@@ -107,3 +107,16 @@ def bulk_inspection_view(request, wo_id):
         'assignments': active_assignments,
         'wear_types': WearType.objects.all()
     })
+
+
+
+def ajax_load_tires(request):
+    wo_id = request.GET.get('inspection_odometer')
+    try:
+        work_order = WorkOrder.objects.get(id=wo_id)
+        # Filter tires currently mounted on the vehicle associated with this Work Order
+        tires = Tire.objects.filter(current_position__vehicle=work_order.vehicle)
+    except (WorkOrder.DoesNotExist, ValueError):
+        tires = Tire.objects.none()
+
+    return render(request, 'tires/partials/tire_options.html', {'tires': tires})

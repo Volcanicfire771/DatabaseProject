@@ -2,20 +2,32 @@
     <div class="modal-dialog modal-lg">
         <form method="post" action="{% url 'inspection_create' %}">
             {% csrf_token %}
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">Record New Tire Inspection</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-3">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">Record New Tire Inspection</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                            <label class="form-label fw-bold">Active Work Order (Odometer)</label>
+                            <div hx-target="#id_tire" hx-swap="innerHTML">
+                                {% if form.inspection_odometer %}
+                                    {# If you are rendering the field manually to add attributes: #}
+                                    <select name="inspection_odometer" id="id_inspection_odometer" class="form-select" 
+                                            hx-get="{% url 'ajax_load_tires' %}" 
+                                            hx-trigger="change">
+                                        {% for choice in form.fields.inspection_odometer.choices %}
+                                            <option value="{{ choice.0 }}">{{ choice.1 }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% endif %}
+                            </div>
+                        </div>
+
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Select Tire</label>
-                            {{ form.tire }}
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Active Work Order (Odometer)</label>
-                            {{ form.inspection_odometer }}
+                            {{ form.tire }} 
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Inspector</label>
