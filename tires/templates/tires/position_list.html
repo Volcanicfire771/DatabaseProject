@@ -98,7 +98,12 @@
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Axle Type</label>
-                                                <input type="text" name="axle_type" class="form-control" value="{{ pos.axle_type }}" required>
+                                                <select name="axle_type" class="form-select" required>
+                                                    <option value="S" {% if pos.axle_type == 'S' %}selected{% endif %}>Steer</option>
+                                                    <option value="D" {% if pos.axle_type == 'D' %}selected{% endif %}>Drive</option>
+                                                    <option value="T" {% if pos.axle_type == 'T' %}selected{% endif %}>Trailer</option>
+                                                    <option value="A" {% if pos.axle_type == 'A' %}selected{% endif %}>All-Position</option>
+                                                </select>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Tire Order</label>

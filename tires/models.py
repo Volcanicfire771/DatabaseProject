@@ -197,7 +197,13 @@ class Tire(models.Model):
 class TirePosition(models.Model):
     position_name = models.CharField(max_length=50) # e.g., "Front Left"
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
-    axle_type = models.CharField(max_length=20) # e.g., "Steer", "Drive"
+    AXLE_CHOICES = [
+        ('S', 'Steer'),
+        ('D', 'Drive'),
+        ('T', 'Trailer'),
+        ('A', 'All-Position'),
+    ]
+    axle_type = models.CharField(max_length=1, choices=AXLE_CHOICES)
     
     # We use SET_NULL because if the tire is removed, the position still exists
     mounted_tire = models.ForeignKey('Tire', on_delete=models.SET_NULL, null=True, blank=True)
