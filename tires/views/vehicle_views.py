@@ -8,10 +8,9 @@ from ..filters import VehicleFilter
 def vehicle_list(request):
     vehicles = Vehicle.objects.all()
     vehicle_filter = VehicleFilter(request.GET, queryset=vehicles)
-
     context = {
         'vehicles': vehicle_filter.qs,
-        'create_form': VehicleForm(),
+        'form': VehicleForm(),
         # Filter
         'filter': vehicle_filter,
     }

@@ -7,48 +7,64 @@
                     <h5 class="modal-title">New Vehicle Entry</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
+
+                {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                    <li><strong>{{ field|title }}:</strong> {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            
+                            {# This catches the "raise ValidationError" from the clean() method #}
+                            {% for error in form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
                 <div class="modal-body">
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label fw-bold">License Plate</label>
-                            <input type="text" name="license_plate" class="form-control" placeholder="ABC-1234" required>
+                            {{ form.license_plate }}
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Make</label>
-                            <input type="text" name="make" class="form-control" required>
+                            {{ form.make }}
                         </div>
                         <div class="col-md-2">
                             <label class="form-label fw-bold">Year</label>
-                            <input type="number" name="year" class="form-control" value="2024" required>
+                            {{ form.year }}
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Vehicle Type</label>
-                            <select name="vehicle_type" class="form-select">
-                                <option value="Truck">Truck</option>
-                                <option value="Trailer">Trailer</option>
-                                <option value="Bus">Bus</option>
-                            </select>
+                            {{ form.vehicle_type }}
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Current Odometer (km)</label>
-                            <input type="number" name="odometer" class="form-control" required>
+                            {{ form.odometer }}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Operational Tires</label>
-                            <input type="number" name="num_op_tires" class="form-control" value="10">
+                            <label class="form-label fw-bold">Operational Tires</label>
+                            {{ form.num_op_tires }}
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Spare Tires</label>
-                            <input type="number" name="num_sp_tires" class="form-control" value="1">
+                            <label class="form-label fw-bold">Spare Tires</label>
+                            {{ form.num_sp_tires }}
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Current Status</label>
-                            <textarea name="status" class="form-control" rows="2" required></textarea>
+                        
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Vehicle Status</label>
+                            {# Using the 'status' field from your form #}
+                            {{ form.status }}
                         </div>
 
-                        <div class="mb-3">
+                        <div class="col-12">
                             <label class="form-label fw-bold">Tire Configuration</label>
-                            <textarea name="tire_configuration" class="form-control" rows="2" required></textarea>
+                            {{ form.tire_configuration }}
                         </div>
                     </div>
                 </div>

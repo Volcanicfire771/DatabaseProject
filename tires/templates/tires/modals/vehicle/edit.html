@@ -45,11 +45,16 @@
                         </div>
 
                         <div class="col-12">
-                            <label class="form-label fw-bold text-danger">Current Status *</label>
-                            <textarea name="status" class="form-control" rows="2" required>{{ vehicle.status }}</textarea>
+                            <label class="form-label fw-bold text-primary">Vehicle Status</label>
+                            <select name="status" class="form-select" required>
+                                <option value="1" {% if vehicle.status == 1 %}selected{% endif %}>Operational</option>
+                                <option value="2" {% if vehicle.status == 2 %}selected{% endif %}>Under Maintenance</option>
+                                <option value="3" {% if vehicle.status == 3 %}selected{% endif %}>Out Of Commission</option>
+                            </select>
                         </div>
+
                         <div class="col-12">
-                            <label class="form-label fw-bold text-danger">Tire Configuration *</label>
+                            <label class="form-label fw-bold">Tire Configuration</label>
                             <textarea name="tire_configuration" class="form-control" rows="2" required>{{ vehicle.tire_configuration }}</textarea>
                         </div>
                     </div>

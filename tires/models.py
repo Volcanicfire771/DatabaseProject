@@ -102,12 +102,19 @@ class Vehicle(models.Model):
     year = models.PositiveIntegerField()
     vehicle_type = models.CharField(max_length=50) 
     odometer = models.PositiveIntegerField()
-    status = models.TextField()
     tire_configuration = models.TextField()
 
     # Logic: How many tires should this vehicle have?
     num_op_tires = models.PositiveIntegerField(default=10, verbose_name="Operational Tires")
     num_sp_tires = models.PositiveIntegerField(default=1, verbose_name="Spare Tires")
+
+    STATUS_CHOICES = [
+        ( 1, 'Operational'),
+        ( 2, 'Under Maintenance'),
+        ( 3, 'Out Of Commission'),
+    ]
+    status = models.PositiveIntegerField(default=1, choices=STATUS_CHOICES)
+
     @property
     def current_odometer(self):
         # Get the latest WorkOrder for this vehicle to find the current mileage
@@ -274,6 +281,17 @@ class TireAssignment(models.Model):
         from .models import WorkOrder
         super().clean()
         errors = {}
+
+        # Status Checks
+        if self.end_odometer.vehicle.status == 2:
+            raise ValidationError({
+                'vehicle': f"Vehicle {self.vehicle.license_plate} is currently Under Maintenance. Assignments are frozen."
+            })
+        
+        if self.vehicle.status == 3:
+            raise ValidationError({
+                'vehicle': "Cannot assign to a decommissioned vehicle."
+            })
 
         # 1. TRUTH-FIRST SOURCE ASSIGNMENT (THE FIX)
         # If this is a new record, fetch the CURRENT database state of the tire
@@ -530,6 +548,13 @@ class WorkOrder(models.Model):
     # # 1. THE RULES
     def clean(self):
         super().clean()
+        
+        # Status Checks
+        if self.vehicle.status == 3:
+            raise ValidationError({f"Cannot create Work Order: Vehicle {self.vehicle} is Out Of Commision"})
+
+
+
         # Check if another OPEN work order exists for this vehicle
         # We exclude 'self.pk' so that updating an existing WO doesn't trigger the error
         if self.status == 'O':

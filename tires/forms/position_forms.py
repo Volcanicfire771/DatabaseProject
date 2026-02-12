@@ -2,7 +2,6 @@ from django import forms
 from ..models import TirePosition, Vehicle, Tire
 
 class TirePositionForm(forms.ModelForm):
-    # Force the field to be a ChoiceField at the form level
     axle_type = forms.ChoiceField(choices=[
         ('S', 'Steer'),
         ('D', 'Drive'),
