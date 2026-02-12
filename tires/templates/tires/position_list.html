@@ -114,24 +114,25 @@
                                             <div class="col-12">
                                                 <hr>
                                                 {% if pos.mounted_tire %}
-                                                    <label class="form-label fw-bold text-success">Mounted Tire</label>
-                                                    <select name="mounted_tire" class="form-select border-success">
-                                                        <option value="">-- Remove/Unmount Tire --</option>
-                                                        {% for t in form.fields.mounted_tire.queryset %}
-                                                        <option value="{{ t.id }}" {% if pos.mounted_tire.id == t.id %}selected{% endif %}>
-                                                            {{ t.serial_number }} ({{ t.brand_name }})
+                                                    <label class="form-label fw-bold text-muted">Mounted Tire (Read-Only)</label>
+                                                    <select name="mounted_tire_disabled" class="form-select bg-light border-secondary" disabled>
+                                                        <option value="{{ pos.mounted_tire.id }}" selected>
+                                                            {{ pos.mounted_tire.serial_number }} ({{ pos.mounted_tire.brand_name }})
                                                         </option>
-                                                        {% endfor %}
                                                     </select>
-                                                    <small class="text-muted">Selecting the empty option will mark this position as empty.</small>
+                                                    
+                                                    <input type="hidden" name="mounted_tire" value="{{ pos.mounted_tire.id }}">
+                                                    
+                                                    <small class="text-muted"><i class="bi bi-lock-fill"></i> This field cannot be changed here. Use the unmount tool to remove.</small>
                                                 {% else %}
                                                     <div class="alert alert-light border text-center py-3 mb-0">
                                                         <p class="mb-0 text-muted"><i class="bi bi-info-circle me-1"></i> This position is currently empty.</p>
-                                                        <small>Use the Tire Inventory to mount a tire here.</small>
                                                     </div>
                                                     <input type="hidden" name="mounted_tire" value="">
                                                 {% endif %}
                                             </div>
+
+                                            
                                         </div>
                                     </div>
                                     <div class="modal-footer bg-light">
