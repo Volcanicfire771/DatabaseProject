@@ -1,0 +1,20 @@
+<option value="">---------</option>
+
+<!-- {% for pos in positions %}
+    <option value="{{ pos.pk }}">
+        {{ pos.position_name }} (Pos: {{ pos.tire_order }})
+        {% if pos.mounted_tire %} 
+            - OCCUPIED by {{ pos.mounted_tire.serial_number }}
+        {% else %}
+            - [Empty]
+        {% endif %}
+    </option>
+{% endfor %} -->
+
+{% if positions %}
+    {% for pos in positions %}
+        <option value="{{ pos.pk }}">{{ pos.vehicle.license_plate }} - {{ pos.position_name }}</option>
+    {% endfor %}
+{% else %}
+    <option value="">Warehouse / Unmounted</option>
+{% endif %}

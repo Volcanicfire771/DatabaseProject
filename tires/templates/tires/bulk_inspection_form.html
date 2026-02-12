@@ -1,0 +1,134 @@
+{% extends 'tires/base.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'work_order_list' %}">Work Orders</a></li>
+            <li class="breadcrumb-item active">Bulk Inspection</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-end mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Bulk Tire Inspection</h2>
+            <p class="text-muted mb-0">Vehicle: <span class="badge bg-dark">{{ work_order.vehicle.license_plate }}</span> | Odometer: <strong>{{ work_order.current_odometer }} km</strong></p>
+        </div>
+        <div class="text-end">
+            <span class="text-muted small d-block">Mechanic</span>
+            <span class="fw-bold">{{ work_order.assigned_to|default:"Unassigned" }}</span>
+        </div>
+    </div>
+
+    <form method="post" class="needs-validation" novalidate>
+        {% csrf_token %}
+        
+        <div class="card shadow-sm border-0 overflow-hidden">
+            <div class="bg-primary p-2"></div> <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4" style="width: 150px;">Position</th>
+                            <th>Tire Information</th>
+                            <th style="width: 180px;">New Tread (mm)</th>
+                            <th style="width: 180px;">New Pressure (PSI)</th>
+                            <th>Condition</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center">
+                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 45px; height: 45px; font-weight: bold; font-size: 0.8rem;">
+                                        {{ assignment.to_position.position_code|default:assignment.to_position.position_name }}
+                                    </div>
+                                    <div class="ms-3 d-none d-md-block">
+                                        <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.65rem;">Location</small>
+                                        <span class="small fw-medium">{{ assignment.to_position.position_name }}</span>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <td>
+                                <span class="fw-bold d-block">{{ assignment.tire.serial_number }}</span>
+                                <div class="d-flex gap-2 mt-1">
+                                    <span class="badge bg-light text-muted border">Prev: {{ assignment.tire.current_tread_depth }}mm</span>
+                                    <span class="badge bg-light text-muted border">{{ assignment.tire.current_pressure }} PSI</span>
+                                </div>
+                            </td>
+
+                            <td>
+                                <div class="input-group">
+                                    <input type="number" step="0.1" name="tread_{{ assignment.id }}" 
+                                           class="form-control form-control-lg border-primary-subtle shadow-sm" 
+                                           placeholder="0.0" required>
+                                    <span class="input-group-text bg-white text-muted small">mm</span>
+                                </div>
+                            </td>
+
+                            <td>
+                                <div class="input-group">
+                                    <input type="number" name="pressure_{{ assignment.id }}" 
+                                           class="form-control form-control-lg border-primary-subtle shadow-sm" 
+                                           placeholder="0" required>
+                                    <span class="input-group-text bg-white text-muted small">PSI</span>
+                                </div>
+                            </td>
+
+                            <td class="pe-4">
+                                <select name="wear_{{ assignment.id }}" class="form-select form-select-lg border-light shadow-sm">
+                                    <option value="">✅ Normal Wear</option>
+                                    {% for wear in wear_types %}
+                                    <option value="{{ wear.id }}">⚠️ {{ wear.wear_type }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card-footer bg-light p-4 border-0">
+                <div class="row align-items-center">
+                    <div class="col-md-5 mb-3 mb-md-0">
+                        <label class="form-label fw-bold text-dark">Service Cost for Work Order #{{ work_order.id }}</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0 text-success fw-bold">$</span>
+                            <input type="number" step="0.01" name="total_cost" class="form-control form-control-lg border-start-0 ps-0" 
+                                   value="{{ work_order.cost|default:'0.00' }}">
+                        </div>
+                        <small class="text-muted mt-1 d-block">Include labor and any parts used in this service.</small>
+                    </div>
+                    <div class="col-md-7 text-md-end">
+                        <a href="{% url 'work_order_list' %}" class="btn btn-link text-decoration-none text-muted me-3">Cancel</a>
+                        <button type="submit" class="btn btn-success btn-lg px-5 shadow-sm">
+                            <i class="bi bi-cloud-check-fill me-2"></i> Save All Logs & Update Cost
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<style>
+    /* Styling for focus states to help mechanics see where they are typing */
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+        background-color: #fff;
+    }
+    
+    tr:hover {
+        background-color: rgba(13, 110, 253, 0.02) !important;
+    }
+
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+        -webkit-appearance: none; 
+        margin: 0; 
+    }
+</style>
+{% endblock %}

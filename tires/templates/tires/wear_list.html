@@ -1,0 +1,109 @@
+{% extends 'tires/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Tire Wear Library</h2>
+        <button class="btn btn-warning shadow-sm" data-bs-toggle="modal" data-bs-target="#createWearModal">
+            <i class="bi bi-plus-circle"></i> New Wear Type
+        </button>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 20%;">Wear Type</th>
+                        <th style="width: 35%;">Common Cause</th>
+                        <th style="width: 35%;">Recovery Scheme</th>
+                        <th style="width: 10%;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for w in wears %}
+                    <tr>
+                        <td class="fw-bold text-dark">{{ w.wear_type }}</td>
+                        <td><small class="text-muted">{{ w.common_cause }}</small></td>
+                        <td><span class="badge bg-light text-dark border">{{ w.recovery_scheme }}</span></td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal{{ w.id }}">
+                                    Edit
+                                </button>
+                                <a href="{% url 'wear_delete' w.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this record?')">
+                                    <i class="bi bi-trash"></i>
+                                    Delete
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <div class="modal fade" id="editModal{{ w.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <form method="post" action="{% url 'wear_update' w.id %}">
+                                {% csrf_token %}
+                                <div class="modal-content">
+                                    <div class="modal-header bg-dark text-white">
+                                        <h5 class="modal-title">Edit {{ w.wear_type }}</h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Wear Type Name</label>
+                                            <input type="text" name="wear_type" class="form-control" value="{{ w.wear_type }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Common Cause</label>
+                                            <textarea name="common_cause" class="form-control" rows="3" required>{{ w.common_cause }}</textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Recovery Scheme</label>
+                                            <textarea name="recovery_scheme" class="form-control" rows="3" required>{{ w.recovery_scheme }}</textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="submit" class="btn btn-success">Update Wear Type</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="createWearModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'wear_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">Define New Wear Type</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Wear Type</label>
+                        <input type="text" name="wear_type" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Common Cause</label>
+                        <textarea name="common_cause" class="form-control" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Recovery Scheme</label>
+                        <textarea name="recovery_scheme" class="form-control" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100">Save to Library</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

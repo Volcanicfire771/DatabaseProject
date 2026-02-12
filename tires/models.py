@@ -3,7 +3,7 @@ import datetime
 from django.core.validators import MaxValueValidator, MinValueValidator
 from decimal import Decimal
 from django.core.exceptions import ValidationError
-
+from django.utils import timezone
 # --- Batch 1 ---
 # Validations: 1) Email is unique for each employee
 
@@ -46,7 +46,7 @@ class TireStatus(models.Model):
         verbose_name_plural = "Tire Statuses" # Change plural from TireStatuss (default by django)
 
     def __str__(self):
-        return self.name
+        return self.get_name_display()
 
 class WearType(models.Model):
     wear_type = models.CharField(max_length=100)
@@ -102,13 +102,26 @@ class Vehicle(models.Model):
     year = models.PositiveIntegerField()
     vehicle_type = models.CharField(max_length=50) 
     odometer = models.PositiveIntegerField()
-    status = models.TextField()
     tire_configuration = models.TextField()
 
     # Logic: How many tires should this vehicle have?
     num_op_tires = models.PositiveIntegerField(default=10, verbose_name="Operational Tires")
     num_sp_tires = models.PositiveIntegerField(default=1, verbose_name="Spare Tires")
 
+    STATUS_CHOICES = [
+        ( 1, 'Operational'),
+        ( 2, 'Under Maintenance'),
+        ( 3, 'Out Of Commission'),
+    ]
+    status = models.PositiveIntegerField(default=1, choices=STATUS_CHOICES)
+
+    @property
+    def current_odometer(self):
+        # Get the latest WorkOrder for this vehicle to find the current mileage
+        latest_work_order = self.workorder_set.order_by('-current_odometer').first()
+        if latest_work_order:
+            return latest_work_order.current_odometer
+        return 0
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
@@ -116,43 +129,74 @@ class Vehicle(models.Model):
     def __str__(self):
         return f"{self.license_plate} ({self.make})"
 
-class Tire(models.Model):
-    serial_number = models.CharField(max_length=100)
-    
-    # FOREIGN KEYS: This links Batch 2 to Batch 1
-    # CASCADE: If we delete TirePattern all tires associated with the deleted pattern will get deleted.
-    # SET_NULL: if we delete the status all tires associated with the deleted status will have a null status.
-    # PROTECT: Cannot delete a supplier without deleting all tires associated with that supplier.
 
-    pattern = models.ForeignKey(TirePattern, on_delete=models.SET_NULL,null=True, blank=True) 
-    status = models.ForeignKey('TireStatus', on_delete=models.SET_NULL, null=True) 
-    supplier = models.ForeignKey('Supplier', on_delete=models.SET_NULL,null=True, blank=True) 
+
+class Tire(models.Model):
+    serial_number = models.CharField(max_length=100, unique=True)
     
+    # Batch 1 Relationships
+    pattern = models.ForeignKey('TirePattern', on_delete=models.SET_NULL, null=True, blank=True) 
+    status = models.ForeignKey('TireStatus', on_delete=models.SET_NULL, null=True) 
+    supplier = models.ForeignKey('Supplier', on_delete=models.SET_NULL, null=True, blank=True) 
+    
+    # Financial & Technical Data
     purchase_date = models.DateField()
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2)
-    current_tread_depth = models.DecimalField(max_digits=5, decimal_places=2,null=True, blank=True)
+    current_tread_depth = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     current_pressure = models.IntegerField(null=True, blank=True)
+    tire_mileage = models.PositiveIntegerField(default=0, help_text="Total KM driven")
+    
+    size = models.CharField(max_length=50) # Changed to CharField for better indexing/filtering
+    retread_count = models.PositiveIntegerField(default=0) 
+    max_retreads = models.PositiveIntegerField(default=3)
+    
+    # Location Snapshot
+    current_position = models.ForeignKey(
+        'TirePosition', 
+        on_delete=models.PROTECT, 
+        null=True, 
+        blank=True,
+        help_text="If null, the tire is in the warehouse."
+    )
 
-    size = models.TextField()
-    retread_count = models.PositiveIntegerField() 
-    max_retreads = models.PositiveIntegerField()
-    tire_mileage = models.IntegerField(default=0)
-    current_position = models.ForeignKey('TirePosition', on_delete=models.PROTECT, null=True, blank=True) # if null it means that it is in the warehouse or not attached to any vehicles
-
-    # notes = models.TextField(null=True, blank=True)
+    # Inside your Tire model
+    @property
+    def total_mileage(self):
+        from django.db.models import Sum
+        # 1. Sum up all completed/frozen stints
+        completed = self.tireassignment_set.aggregate(Sum('stint_distance'))['stint_distance__sum'] or 0
+        
+        # 2. Calculate "Live" mileage for the active assignment
+        active = self.tireassignment_set.filter(removal_date__isnull=True).first()
+        live_dist = 0
+        
+        if active and active.to_position and active.to_position.vehicle:
+            # Get the current truck odometer via the property we just created
+            truck_odo = active.to_position.vehicle.current_odometer
+            start_odo = active.start_odometer.current_odometer
+            live_dist = max(0, truck_odo - start_odo)
+            
+        return completed + live_dist
 
     def get_active_assignment(self):
-        """Returns the current assignment record for this tire."""
-        # We look for the assignment where removal_date is still empty
+        """Returns the current open assignment record for this tire."""
         return self.tireassignment_set.filter(removal_date__isnull=True).last()
 
-    # cannot retread_count > max_retreads
+    def clean(self):
+        """Validates business rules before saving."""
+        super().clean()
+        if self.retread_count > self.max_retreads:
+            raise ValidationError({
+                'retread_count': f"Retread count ({self.retread_count}) cannot exceed maximum allowed ({self.max_retreads})."
+            })
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"SN: {self.serial_number} - {self.pattern.brand_name}"
+        brand = self.pattern.brand_name if self.pattern else "Unknown Brand"
+        return f"SN: {self.serial_number} - {brand}"
     
 
 
@@ -160,7 +204,13 @@ class Tire(models.Model):
 class TirePosition(models.Model):
     position_name = models.CharField(max_length=50) # e.g., "Front Left"
     vehicle = models.ForeignKey('Vehicle', on_delete=models.CASCADE)
-    axle_type = models.CharField(max_length=20) # e.g., "Steer", "Drive"
+    AXLE_CHOICES = [
+        ('S', 'Steer'),
+        ('D', 'Drive'),
+        ('T', 'Trailer'),
+        ('A', 'All-Position'),
+    ]
+    axle_type = models.CharField(max_length=1, choices=AXLE_CHOICES)
     
     # We use SET_NULL because if the tire is removed, the position still exists
     mounted_tire = models.ForeignKey('Tire', on_delete=models.SET_NULL, null=True, blank=True)
@@ -188,182 +238,201 @@ class TirePosition(models.Model):
 
 class TireAssignment(models.Model):
     tire = models.ForeignKey('Tire', on_delete=models.CASCADE)
-    from_position = models.ForeignKey(TirePosition, related_name='assignments_from', on_delete=models.SET_NULL, null=True,blank=True)
-    to_position = models.ForeignKey(TirePosition, related_name='assignments_to', on_delete=models.SET_NULL, null=True, blank=True)
+    from_position = models.ForeignKey(
+        'TirePosition', 
+        related_name='assignments_from', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True
+    )
+    to_position = models.ForeignKey(
+        'TirePosition', 
+        related_name='assignments_to', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True
+    )
+    stint_distance = models.FloatField(default=0)
     assignment_date = models.DateTimeField(auto_now_add=True)
     removal_date = models.DateTimeField(null=True, blank=True)
     
-    # Capturing mileage at the moment of change
-    start_odometer = models.ForeignKey('WorkOrder', on_delete=models.SET_NULL, related_name='previous_wo', null=True,blank=True) # the previous work order. can be null incase that this is the first assignment
-    end_odometer = models.ForeignKey('WorkOrder', on_delete=models.SET_NULL, related_name='current_wo', null=True) # the current work_order
+    # Capturing mileage via WorkOrder links
+    start_odometer = models.ForeignKey(
+        'WorkOrder', 
+        on_delete=models.SET_NULL, 
+        related_name='previous_assignments', 
+        null=True, 
+        blank=True
+    )
+    end_odometer = models.ForeignKey(
+        'WorkOrder', 
+        on_delete=models.SET_NULL, 
+        related_name='closing_assignments', 
+        null=True, 
+        blank=True
+    )
     
-    removal_mileage = models.PositiveIntegerField(null=True, blank=True)
+    work_order = models.ForeignKey('WorkOrder', on_delete=models.SET_NULL, null=True)
     reason_for_removal = models.TextField(blank=True)
 
-    work_order = models.ForeignKey('WorkOrder', on_delete=models.SET_NULL, null=True)
-
-    @staticmethod
-    def move_tire(tire, to_position, work_order, reason=""):
-        from django.utils import timezone
-        
-        # 1. CLOSE THE OLD ASSIGNMENT (If it exists)
-        active_assignment = TireAssignment.objects.filter(tire=tire, removal_date__isnull=True).last()
-        if active_assignment:
-            active_assignment.removal_date = timezone.now()
-            active_assignment.end_odometer = work_order
-            active_assignment.reason_for_removal = reason
-            active_assignment.save()
-            
-            # Important: Clear the old TirePosition link
-            if active_assignment.to_position:
-                old_pos = active_assignment.to_position
-                old_pos.mounted_tire = None
-                old_pos.save()
-
-        # 2. UPDATE THE CURRENT STATE
-        tire.current_position = to_position
-        tire.save()
-
-        if to_position:
-            to_position.mounted_tire = tire
-            to_position.save()
-
-        # 3. CREATE THE NEW ASSIGNMENT (Only if not moving to Trash/Warehouse)
-        if to_position:
-            TireAssignment.objects.create(
-                tire=tire,
-                from_position=active_assignment.to_position if active_assignment else None,
-                to_position=to_position,
-                start_odometer=work_order,
-                work_order=work_order
-            )
+   # Inside your TireAssignment class:
 
     def clean(self):
-        # 1. Check if the 'to_position' already has a tire
-        if self.to_position and self.to_position.mounted_tire:
-            # If the tire in that spot isn't the one we are currently moving
-            if self.to_position.mounted_tire != self.tire:
-                raise ValidationError(
-                    f"The position {self.to_position} is already occupied by tire "
-                    f"{self.to_position.mounted_tire.serial_number}. "
-                    "Please unmount it first."
+        from .models import WorkOrder
+        super().clean()
+        errors = {}
+
+        # Status Checks
+        if self.end_odometer.vehicle.status == 2:
+            raise ValidationError({
+                'vehicle': f"Vehicle {self.vehicle.license_plate} is currently Under Maintenance. Assignments are frozen."
+            })
+        
+        if self.vehicle.status == 3:
+            raise ValidationError({
+                'vehicle': "Cannot assign to a decommissioned vehicle."
+            })
+
+        # 1. TRUTH-FIRST SOURCE ASSIGNMENT (THE FIX)
+        # If this is a new record, fetch the CURRENT database state of the tire
+        # to find where it's coming from, ignoring any unsaved changes in memory.
+        if not self.pk and self.tire_id:
+            try:
+                # We fetch a fresh copy directly from the DB
+                db_tire = type(self.tire).objects.get(pk=self.tire.pk)
+                self.from_position = db_tire.current_position
+            except type(self.tire).DoesNotExist:
+                self.from_position = None
+
+        # 2. VALIDATE TARGET (MOUNTING)
+        if self.to_position:
+            # Check if destination is occupied by another tire
+            if self.to_position.mounted_tire and self.to_position.mounted_tire != self.tire:
+                errors['to_position'] = (
+                    f"Position {self.to_position} is already occupied by "
+                    f"{self.to_position.mounted_tire.serial_number}."
                 )
-            
-        if self.to_position and self.from_position and self.from_position.vehicle != self.to_position.vehicle:
-            #Check if vehicles have work orders
-            wo1 =WorkOrder.objects.filter(
-            vehicle=self.from_position.vehicle,
-            status="O"
-        ).first()
-            wo2 =WorkOrder.objects.filter(
-            vehicle=self.to_position.vehicle,
-            status="O"
-        ).first()
-            
-            if not wo1 or not wo2:
-                raise ValidationError(
-                    f"Both vehicles must have an open work order to perform this operation"
+
+            # Check for Open Work Order on destination vehicle
+            has_open_wo = WorkOrder.objects.filter(
+                vehicle=self.to_position.vehicle, 
+                status='O'
+            ).exists()
+            if not has_open_wo:
+                errors['to_position'] = (
+                    f"Vehicle {self.to_position.vehicle.license_plate} has no open Work Order."
                 )
-            
+
+        # 3. INTER-VEHICLE MOVE CHECK
+        if self.from_position and self.to_position:
+            if self.from_position.vehicle != self.to_position.vehicle:
+                if not WorkOrder.objects.filter(vehicle=self.from_position.vehicle, status='O').exists():
+                    errors['from_position'] = (
+                        f"Source vehicle {self.from_position.vehicle.license_plate} "
+                        f"must have an open Work Order to record removal mileage."
+                    )
+
+        # 4. REMOVAL CHECK (To Warehouse)
+        if self.from_position and not self.to_position:
+            if not self.work_order:
+                errors['work_order'] = "A Work Order is required to record removal mileage."
+
+        if errors:
+            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
-        self.full_clean()
-        # Updating the to position to have the tire which automatically updates the tire to be in that position
-        self.to_position.mounted_tire = self.tire
-        self.to_position.save()
+            from .models import WorkOrder 
+            if self.end_odometer and self.start_odometer:
+                self.stint_distance = self.end_odometer.current_odometer - self.start_odometer.current_odometer
+            # 1. Run validation to capture the 'from_position' snapshot
+            if not self.pk:
+                self.full_clean()
+            
+            is_new = self.pk is None
 
-        if self.from_position and self.from_position != self.to_position:
-            self.from_position.mounted_tire = None
-            self.from_position.save()
+            if is_new:
+                # A. Set the Start Odometer
+                if self.work_order and not self.start_odometer:
+                    self.start_odometer = self.work_order
 
-        self.full_clean()
-        super().save(*args, **kwargs)
+                # B. Close previous assignment
+                prev_assignment = TireAssignment.objects.filter(
+                    tire=self.tire, 
+                    removal_date__isnull=True
+                ).last()
+
+                if prev_assignment:
+                    prev_assignment.removal_date = timezone.now()
+                    if prev_assignment.to_position:
+                        old_vehicle = prev_assignment.to_position.vehicle
+                        closing_wo = WorkOrder.objects.filter(vehicle=old_vehicle, status='O').last()
+                        if closing_wo:
+                            prev_assignment.end_odometer = closing_wo
+                    prev_assignment.save()
+
+            # --- THE FIX FOR tire.current_position ---
+
+            # 2. Update Physical Slots (The TirePosition objects)
+            if self.to_position:
+                # Mark the new slot as occupied
+                type(self.to_position).objects.filter(pk=self.to_position.pk).update(mounted_tire=self.tire)
+                # Update the tire instance in memory
+                self.tire.current_position = self.to_position
+            else:
+                # Moving to Warehouse
+                self.tire.current_position = None
+
+            # 3. Clear the old physical slot
+            if self.from_position and self.from_position != self.to_position:
+                type(self.from_position).objects.filter(pk=self.from_position.pk).update(mounted_tire=None)
+
+            # 4. FORCE save the Tire master record
+            # We do this specifically to ensure the 'current_position' column in the Tire table updates
+            self.tire.save()
+
+            # 5. Finally, save this Assignment record
+            super().save(*args, **kwargs)
+
+    
 
     def __str__(self):
-        return f"{self.tire.serial_number} moved on {self.assignment_date.date()}"
+        return f"{self.tire.serial_number} at {self.to_position if self.to_position else 'Warehouse'}"
     
+from django.db import models
+from django.core.exceptions import ValidationError
+
 class TireInspection(models.Model):
     tire = models.ForeignKey('Tire', on_delete=models.CASCADE)
-    position = models.ForeignKey('TirePosition', on_delete=models.SET_NULL, null=True, blank=True) # blank=true:for django. null=true: for PostgreSQL
+    position = models.ForeignKey('TirePosition', on_delete=models.SET_NULL, null=True, blank=True)
     inspection_odometer = models.ForeignKey('WorkOrder', on_delete=models.CASCADE)
     inspector = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, blank=True)
     inspection_date = models.DateTimeField()    
+    
     # Current stats found during inspection
     tread_depth = models.DecimalField(max_digits=5, decimal_places=2)
     pressure = models.IntegerField()
-    
     wear_type = models.ForeignKey('WearType', on_delete=models.SET_NULL, null=True, blank=True)
-    
-    # add calculations on the spot
 
-
-    @property
-    def consumption_rate(self):
-        prev_insp = self.get_previous_inspection()
-        
-        if prev_insp:
-            # Plan A: Note the change to self.inspection_odometer
-            pto = prev_insp.inspection_odometer.current_odometer
-            ptd = prev_insp.tread_depth
-        else:
-            assignment = self.tire.get_active_assignment()
-            if assignment and assignment.start_odometer:
-                pto = assignment.start_odometer.current_odometer
-                ptd = self.tire.pattern.initial_tread_depth
-            else:
-                return 0 
-
-        cto = self.inspection_odometer.current_odometer # Fix field name
-        ctd = self.tread_depth
-        
-        distance = cto - pto
-        depth_loss = ptd - ctd
-        
-        if distance > 0 and depth_loss > 0:
-            # Use float() to avoid Decimal calculation errors
-            return (float(depth_loss) / float(distance)) * 10000
-        return 0
-
-    @property
-    def current_value(self):
-        pattern = self.tire.pattern
-        useful_life = float(pattern.initial_tread_depth - pattern.discarding_tread_depth)
-        remaining_life = float(self.tread_depth - pattern.discarding_tread_depth)
-        
-        if useful_life > 0:
-            percent_left = remaining_life / useful_life
-            return float(self.tire.purchase_price) * percent_left
-        return 0
-
-
-    @property
-    def remaining_distance(self):
-        crp = self.consumption_rate
-        dtd = self.tire.pattern.discarding_tread_depth
-        ctd = self.tread_depth
-        
-        if crp > 0:
-            return (float(ctd - dtd) / float(crp)) * 10000
-        return 0
-
-    
+    # --- SNAPSHOT FIELDS (Frozen History) ---
+    # These store the results of the math at the moment of save
+    recorded_consumption_rate = models.FloatField(null=True, blank=True)
+    recorded_remaining_distance = models.FloatField(null=True, blank=True)
+    recorded_current_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    recorded_cost_per_km = models.FloatField(null=True, blank=True)
+    recorded_fuel_impact = models.FloatField(null=True, blank=True)
 
     def get_previous_inspection(self):
-        
         return TireInspection.objects.filter(
             tire=self.tire,
-            inspection_date__lt=self.inspection_date # 'lt' means 'less than' (earlier)
-        ).order_by('-inspection_date').first() # Get the newest one of the older ones
+            inspection_date__lt=self.inspection_date
+        ).order_by('-inspection_date').first()
 
-    def clean(self):
-        if self.inspection_odometer.status == "C":
-            raise ValidationError(
-                    f"Vehicle must have an open work order to perform an inspection"
-                )
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        # 1. Repeating variables pulled to the top
+    def calculate_performance_snapshot(self):
+        """
+        Internal logic to calculate metrics based on the current state.
+        This is called during save() to freeze the data.
+        """
+        # 1. Gather Baseline Data
         pattern = self.tire.pattern
         initial_depth = float(pattern.initial_tread_depth)
         discard_depth = float(pattern.discarding_tread_depth)
@@ -371,76 +440,86 @@ class TireInspection(models.Model):
         price = float(self.tire.purchase_price)
         curr_depth = float(self.tread_depth)
         curr_pres = float(self.pressure)
-        
-        # 2. Calculated Properties (Cast to float for safety)
-        crp = float(self.consumption_rate)
-        rtd = float(self.remaining_distance)
-        val = float(self.current_value)
-        
-        # 3. Custom Equations
-        ttm = self.tire.tire_mileage
-        
-        # Cost per Millimeter (cmm)
-        useful_mm = initial_depth - discard_depth
-        cmm = price / useful_mm if useful_mm > 0 else 0
-        
-        # Cost per Kilometer (ckm)
-        ckm = 10 * (crp/10000) * cmm 
-        
-        # Fuel Consumption Impact (fci)
-        fci = ((ideal_pres - curr_pres) / 10 * 0.4) if ideal_pres > curr_pres else 0
-        
-        # Financial Loss due to Pressure (flc)
-        # last assignment made on the tire -->  work order --> current odometer
-        ptm = self.inspection_odometer.current_odometer - TireAssignment.objects.filter(tire=self.tire).first().work_order.current_odometer
-        flc = fci * (ptm / 100) 
-        
-        # Standard variables for printing
-        dto = discard_depth
-        
-        # Current Tire Value (ctv)
-        if (initial_depth - dto) > 0:
-            ctv = (curr_depth - dto) / (initial_depth - dto) * price
-        else:
-            ctv = 0
-            
-        # Remaining Distance (btd)
-        btd = (curr_depth - dto) / crp * 10000 if crp > 0 else 0
+        cto = self.inspection_odometer.current_odometer
 
-        # 4. Professional Print Statement
+        # 2. Find Previous Point (Inspection or Original Mounting)
+        prev_insp = self.get_previous_inspection()
+        if prev_insp:
+            pto = float(prev_insp.inspection_odometer.current_odometer)
+            ptd = float(prev_insp.tread_depth)
+        else:
+            assignment = self.tire.get_active_assignment()
+            if assignment and assignment.start_odometer:
+                pto = float(assignment.start_odometer.current_odometer)
+                ptd = initial_depth
+            else:
+                pto, ptd = cto, curr_depth # Fallback to avoid zero division
+
+        # 3. Core Math
+        distance = cto - pto
+        depth_loss = ptd - curr_depth
+        
+        # Consumption Rate (mm per 10k km)
+        crp = (depth_loss / distance * 10000) if distance > 0 and depth_loss > 0 else 0
+        
+        # Remaining Distance
+        rem_dist = ((curr_depth - discard_depth) / crp * 10000) if crp > 0 else 0
+        
+        # Current Value
+        useful_mm = initial_depth - discard_depth
+        val = (price * (curr_depth - discard_depth) / useful_mm) if useful_mm > 0 else 0
+        
+        # Financial Snapshot (CPK)
+        cmm = price / useful_mm if useful_mm > 0 else 0
+        ckm = (crp / 10000) * cmm 
+
+        # Fuel Impact
+        fci = ((ideal_pres - curr_pres) / 10 * 0.4) if ideal_pres > curr_pres else 0
+
+        return {
+            'rate': crp,
+            'distance': rem_dist,
+            'value': max(0, val),
+            'cpk': ckm,
+            'fuel': fci
+        }
+
+    def clean(self):
+        if self.inspection_odometer.status == "C":
+            raise ValidationError("Vehicle must have an open work order to perform an inspection")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        
+        # 1. Run Calculations and FREEZE them into the recorded fields
+        metrics = self.calculate_performance_snapshot()
+        
+        self.recorded_consumption_rate = metrics['rate']
+        self.recorded_remaining_distance = metrics['distance']
+        self.recorded_current_value = metrics['value']
+        self.recorded_cost_per_km = metrics['cpk']
+        self.recorded_fuel_impact = metrics['fuel']
+
+        # 2. Print the Professional Report to Console
         print(f"\n{'='*45}")
-        print(f" PERFORMANCE REPORT: {self.tire.serial_number}")
+        print(f" PERFORMANCE SNAPSHOT: {self.tire.serial_number}")
         print(f"{'='*45}")
-        print(f" [WEAR]  Depth: {curr_depth}mm | Rate: {crp:.2f}mm/10k")
-        print(f" [LIFE]  Predicted Remaining: {btd:,.0f} units")
-        print(f" [COST]  CPmm: ${cmm:.2f} | Cost/km: ${ckm:.4f}")
-        print(f" [FUEL]  Pressure Loss: {ideal_pres - curr_pres:.1f} PSI")
-        print(f"         Fuel Impact Factor: {fci:.4f}")
-        print(f" [VALU]  Current Asset Value: ${ctv:.2f}")
+        print(f" [WEAR]  Depth: {self.tread_depth}mm | Rate: {self.recorded_consumption_rate:.2f}mm/10k")
+        print(f" [LIFE]  Predicted Remaining: {self.recorded_remaining_distance:,.0f} km")
+        print(f" [COST]  Cost/km: ${self.recorded_cost_per_km:.4f}")
+        print(f" [VALU]  Recorded Asset Value: ${self.recorded_current_value:.2f}")
         print(f"{'='*45}\n")
 
-        # 5. History handling
-        prev = self.get_previous_inspection()
-        if prev:
-            prev_depth = prev.tread_depth
-            prev_pressure = prev.pressure
-        else:
-            prev_depth = self.tire.current_tread_depth
-            prev_pressure = self.tire.current_pressure
-
-        print(f"DEBUG: Comparison -> Prev: {prev_depth}mm / Now: {self.tread_depth}mm")
-
-        # 6. Update Tire and Commit
+        # 3. Update the physical Tire asset with latest known status
         tire = self.tire
         tire.current_tread_depth = self.tread_depth
         tire.current_pressure = self.pressure
         tire.save()
 
-        
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Inspection: {self.tire.serial_number} - {self.inspection_date}"
+        return f"Log: {self.tire.serial_number} ({self.inspection_date.date()})"
     
 class WorkOrder(models.Model):
         
@@ -467,10 +546,28 @@ class WorkOrder(models.Model):
 
     notes = models.TextField(blank=True, null=True) # Notes should never be mandatory
     # # 1. THE RULES
-    # def clean(self):
-    #     super().clean() # Always call this first!
-    #     if self.date_closed and self.date_closed < self.date_created:
-    #         raise ValidationError("A Work Order cannot end before it starts!")
+    def clean(self):
+        super().clean()
+        
+        # Status Checks
+        if self.vehicle.status == 3:
+            raise ValidationError({f"Cannot create Work Order: Vehicle {self.vehicle} is Out Of Commision"})
+
+
+
+        # Check if another OPEN work order exists for this vehicle
+        # We exclude 'self.pk' so that updating an existing WO doesn't trigger the error
+        if self.status == 'O':
+            exists = WorkOrder.objects.filter(
+                vehicle=self.vehicle, 
+                status='O'
+            ).exclude(pk=self.pk).exists()
+            
+            if exists:
+                raise ValidationError(
+                    f"Vehicle {self.vehicle.license_plate} already has an open Work Order. "
+                    f"Please close it before opening a new one."
+                )
 
     # 2. THE ENFORCER
     def save(self, *args, **kwargs):

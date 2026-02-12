@@ -1,0 +1,4 @@
+<option value="">-- Select a Mounted Tire --</option>
+{% for tire in tires %}
+    <option value="{{ tire.id }}">{{ tire.serial_number }} ({{ tire.current_position }})</option>
+{% endfor %}

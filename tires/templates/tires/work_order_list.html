@@ -1,0 +1,119 @@
+{% extends 'tires/base.html' %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Service Work Orders</h2>
+            <p class="text-muted mb-0">Manage vehicle maintenance and tire inspections</p>
+        </div>
+        <button class="btn btn-success shadow-sm px-4" data-bs-toggle="modal" data-bs-target="#createWorkOrderModal">
+            <i class="bi bi-tools me-2"></i> Open New Work Order
+        </button>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="p-3 bg-success text-white rounded shadow-sm border-0 h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0 fw-bold">{{ orders_opened_count|default:"0" }}</h3>
+                        <small class="opacity-75 text-uppercase fw-bold" style="font-size: 0.7rem;">Active Orders</small>
+                    </div>
+                    <i class="bi bi-play-circle fs-1 opacity-25"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="p-3 bg-secondary text-white rounded shadow-sm border-0 h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-0 fw-bold">{{ orders_closed_count|default:"0" }}</h3>
+                        <small class="opacity-75 text-uppercase fw-bold" style="font-size: 0.7rem;">Completed (History)</small>
+                    </div>
+                    <i class="bi bi-check-all fs-1 opacity-25"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr class="mb-4 opacity-10">
+
+    <div class="row">
+        {% for order in orders %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 shadow-sm border-0 border-start border-4 
+                {% if order.status == 'O' %}border-success
+                {% elif order.status == 'P' %}border-warning
+                {% elif order.status == 'C' %}border-secondary{% endif %}">
+                
+                <div class="card-header bg-white d-flex justify-content-between align-items-center border-0 pt-3 pb-0">
+                    <span class="fw-bold text-dark">WO #{{ order.id }}</span>
+                    
+                    {% if order.status == 'O' %}
+                        <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle">OPENED</span>
+                    {% elif order.status == 'P' %}
+                        <span class="badge rounded-pill bg-warning-subtle text-dark border border-warning-subtle">PENDING</span>
+                    {% else %}
+                        <span class="badge rounded-pill bg-light text-muted border">CLOSED</span>
+                    {% endif %}
+                </div>
+
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="p-2 rounded bg-light me-3">
+                            <i class="bi bi-truck fs-4 text-primary"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0 fw-bold">{{ order.vehicle.license_plate }}</h6>
+                            <small class="text-muted"><i class="bi bi-speedometer2"></i> {{ order.current_odometer }} km</small>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-2 small border-top pt-3">
+                        <div class="col-6">
+                            <span class="text-muted d-block" style="font-size: 0.75rem;">Driver</span>
+                            <span class="fw-medium text-dark">{{ order.driver|default:"None" }}</span>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-muted d-block" style="font-size: 0.75rem;">Mechanic</span>
+                            <span class="fw-medium text-dark">{{ order.assigned_to|default:"None" }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-white border-0 pb-3">
+                    <div class="d-grid gap-2">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-dark flex-fill" data-bs-toggle="modal" data-bs-target="#editWorkOrderModal-{{ order.id }}">
+                                <i class="bi bi-gear-fill me-1"></i> Edit
+                            </button>
+                            
+                            {% if order.status != 'C' %}
+                            <a href="{% url 'bulk_inspection' order.id %}" class="btn btn-sm btn-primary flex-fill">
+                                <i class="bi bi-clipboard-check"></i> Bulk Inspection
+                            </a>
+                            {% endif %}
+                        </div>
+                        
+                        <a href="{% url 'work_order_delete' order.id %}" class="btn btn-sm btn-link text-danger text-decoration-none p-0 mt-1" onclick="return confirm('Are you sure you want to delete WO #{{ order.id }}?')">
+                            <i class="bi bi-trash"></i> Delete Work Order
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% include 'tires/modals/work_order/edit.html' %}
+
+        {% empty %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-clipboard-x fs-1 text-muted"></i>
+            <p class="mt-2 text-muted">No Work Orders found. Click the button above to create one.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% include 'tires/modals/work_order/create.html' %}
+{% endblock %}

@@ -1,0 +1,59 @@
+<div class="modal fade" id="createAssignmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'tire_assign_submit' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">Record Tire Movement</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Select Tire</label>
+                        <select name="tire_id" class="form-select" required>
+                            <option value="">-- Choose Tire --</option>
+                            {% for t in tires %}
+                                <option value="{{ t.id }}">{{ t.serial_number }} (Currently: {{ t.current_position|default:"Warehouse" }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Step 1: Select Destination Vehicle</label>
+                        <select class="form-select" 
+                                name="vehicle" 
+                                hx-get="{% url 'ajax_load_to_positions' %}" 
+                                hx-target="#id_to_position" 
+                                hx-trigger="change">
+                            <option value="">Warehouse / Unmount</option>
+                            {% for vehicle in vehicles_with_open_wo %}
+                                <option value="{{ vehicle.id }}">{{ vehicle.license_plate }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted text-uppercase" style="font-size: 0.65rem;">Only vehicles with Open Work Orders appear here</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Step 2: Destination Position</label>
+                        <select name="to_position" id="id_to_position" class="form-select">
+                            <option value="">Select a vehicle first (or leave for Warehouse)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Associated Work Order</label>
+                        <select name="work_order" class="form-select" required>
+                            <option value="">-- Select Work Order --</option>
+                            {% for wo in work_orders %}
+                                <option value="{{ wo.id }}">WO #{{ wo.id }} - {{ wo.vehicle.license_plate }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100">Confirm Movement</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
